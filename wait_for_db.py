@@ -1,26 +1,30 @@
 import time
 import psycopg2
-from django.db import OperationalError
+from psycopg2 import OperationalError
 import os
 
-db_host = os.environ.get("DATABASE_HOST", "db")
-db_name = os.environ.get("DATABASE_NAME", "postgres")
-db_user = os.environ.get("DATABASE_USERNAME", "postgres")
-db_password = os.environ.get("DATABASE_PASSWORD", "")
+def wait_for_postgres():
+    db_user = os.environ.get("DATABASE_USERNAME", "dbuser")
+    db_password = os.environ.get("DATABASE_PASSWORD", "dbpassword")
+    db_name = os.environ.get("DATABASE_NAME", "dockerdjango")
+    db_host = os.environ.get("DB_HOST", "db")
+    db_port = os.environ.get("DB_PORT", 5432)
 
-print("Waiting for database...")
+    while True:
+        try:
+            conn = psycopg2.connect(
+                dbname=db_name,
+                user=db_user,
+                password=db_password,
+                host=db_host,
+                port=db_port
+            )
+            conn.close()
+            print("Database is ready!")
+            break
+        except OperationalError as e:
+            print("Waiting for database...")
+            time.sleep(1)
 
-while True:
-    try:
-        conn = psycopg2.connect(
-            dbname=db_name,
-            user=db_user,
-            password=db_password,
-            host=db_host
-        )
-        conn.close()
-        print("Database is ready!")
-        break
-    except OperationalError:
-        print("Database unavailable, waiting 1 second...")
-        time.sleep(1)
+if __name__ == "__main__":
+    wait_for_postgres()
