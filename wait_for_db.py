@@ -7,8 +7,8 @@ def wait_for_postgres():
     db_user = os.environ.get("DATABASE_USERNAME", "dbuser")
     db_password = os.environ.get("DATABASE_PASSWORD", "dbpassword")
     db_name = os.environ.get("DATABASE_NAME", "dockerdjango")
-    db_host = os.environ.get("DB_HOST", "db")
-    db_port = os.environ.get("DB_PORT", 5432)
+    db_host = os.environ.get("DATABASE_HOST", "db")
+    db_port = os.environ.get("DATABASE_PORT", 5432)
 
     while True:
         try:
