@@ -12,6 +12,7 @@ class BorrowingSerializer(ModelSerializer):
         read_only_fields = ("id",)
 
     def create(self, validated_data):
+        validated_data.pop("actual_return_date", None)
         with transaction.atomic():
             book = validated_data.get("book")
             if book.inventory <= 0:
