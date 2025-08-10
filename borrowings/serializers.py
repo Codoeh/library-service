@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.serializers import ModelSerializer
 
 from borrowings.models import Borrowing
+from payments.stripe_helper import create_stripe_session
 
 
 class BorrowingSerializer(ModelSerializer):
@@ -20,6 +21,8 @@ class BorrowingSerializer(ModelSerializer):
             book.inventory -= 1
             book.save()
             borrowing = Borrowing.objects.create(**validated_data)
+
+            create_stripe_session(borrowing, payment_type="PAYMENT")
             return borrowing
 
     def update(self, instance, validated_data):
@@ -33,4 +36,9 @@ class BorrowingSerializer(ModelSerializer):
                 book = instance.book
                 book.inventory += 1
                 book.save()
+
+                if actual_return_date > instance.expected_return_date:
+                    create_stripe_session(instance, payment_type="FINE")
+                    self.context["created_payment"] = payment
+
             return super().update(instance, validated_data)
