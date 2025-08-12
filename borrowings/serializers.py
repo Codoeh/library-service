@@ -4,7 +4,7 @@ from rest_framework.serializers import ModelSerializer
 
 from borrowings.models import Borrowing
 from payments.stripe_helper import create_stripe_session
-
+from payments.models import Payment
 
 class BorrowingSerializer(ModelSerializer):
     class Meta:
@@ -22,7 +22,13 @@ class BorrowingSerializer(ModelSerializer):
             book.save()
             borrowing = Borrowing.objects.create(**validated_data)
 
-            create_stripe_session(borrowing, payment_type="PAYMENT")
+            payment = Payment.objects.create(borrowing=borrowing)
+            payment.update_payment_amount()
+            stripe_session = create_stripe_session(payment)
+            if isinstance(stripe_session, dict) and "url" in stripe_session:
+                payment.session_url = stripe_session["url"]
+            payment.save(update_fields=["session_url"])
+
             return borrowing
 
     def update(self, instance, validated_data):
@@ -33,12 +39,22 @@ class BorrowingSerializer(ModelSerializer):
                     raise ValidationError("This borrowing has already been returned.")
                 if actual_return_date < instance.borrow_date:
                     raise ValidationError("Return date cannot be earlier than borrow date.")
+
                 book = instance.book
                 book.inventory += 1
                 book.save()
 
-                if actual_return_date > instance.expected_return_date:
-                    create_stripe_session(instance, payment_type="FINE")
-                    self.context["created_payment"] = payment
+                instance.actual_return_date = actual_return_date
+                instance.save(update_fields=["actual_return_date", "book"])
 
-            return super().update(instance, validated_data)
+                payment = Payment.objects.create(borrowing=instance)
+                payment.update_payment_amount()
+
+                stripe_session = create_stripe_session(payment)
+                if isinstance(stripe_session, dict) and "url" in stripe_session:
+                    payment.session_url = stripe_session["url"]
+                    payment.save(update_fields=["session_url"])
+                self.context["created_payment"] = payment
+                return instance
+
+        return super().update(instance, validated_data)

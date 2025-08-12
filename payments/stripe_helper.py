@@ -1,15 +1,8 @@
-import stripe.checkout
+import stripe
 from .models import Payment
 
-def create_stripe_session(borrowing, payment_type):
-    payment = Payment.objects.create(
-        borrowing=borrowing,
-        type=payment_type,
-        status="PENDING",
-    )
-
+def create_stripe_session(payment):
     payment.update_payment_amount()
-
     amount = int(payment.money_to_pay * 100)
     if amount == 0:
         return payment
@@ -20,7 +13,7 @@ def create_stripe_session(borrowing, payment_type):
             "price_data": {
                 "currency": "usd",
                 "product_data": {
-                    "name": f"Library payment for borrowing {borrowing.id}",
+                    "name": f"Library payment for borrowing {payment.borrowing.id}",
                 },
                 "unit_amount": amount,
             },
@@ -33,6 +26,6 @@ def create_stripe_session(borrowing, payment_type):
 
     payment.session_id = session.id
     payment.session_url = session.url
-    payment.save()
+    payment.save(update_fields=["session_id", "session_url"])
 
-    return payment
+    return {"url": session.url}
