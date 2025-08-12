@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from rest_framework.serializers import ModelSerializer
 
+from books.serializers import BookSerializer
 from borrowings.models import Borrowing
 from payments.stripe_helper import create_stripe_session
 from payments.models import Payment
@@ -62,3 +63,11 @@ class BorrowingSerializer(ModelSerializer):
                 return instance
 
         return super().update(instance, validated_data)
+
+
+class BorrowingDetailSerializer(BorrowingSerializer):
+    book = BookSerializer(read_only=True)
+    class Meta:
+        model = Borrowing
+        fields = ("id", "borrow_date", "expected_return_date", "actual_return_date", "book", "user")
+        read_only_fields = ("id",)
