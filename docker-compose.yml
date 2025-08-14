@@ -75,7 +75,7 @@ services:
 
   celery-beat:
     build: .
-    command: celery - A library_service beat -l info
+    command: celery -A library_service beat -l info
     volumes:
       - .:/app
     depends_on:

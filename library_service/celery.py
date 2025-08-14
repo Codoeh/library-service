@@ -8,7 +8,7 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 app.conf.beat_schedule = {
     "notify-overdue-every-day": {
-        "task": "borrowing.tasks.notify_overdue_borrowings",
-        "schedule": crontab(hour=9, minute=0),
+        "task": "borrowings.tasks.notify_overdue_borrowings",
+        "schedule": crontab(hour=18, minute=0),
     },
 }

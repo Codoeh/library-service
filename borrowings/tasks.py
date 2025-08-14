@@ -5,9 +5,9 @@ from utils.telegram_helper import send_telegram_message
 
 @shared_task
 def notify_overdue_borrowings():
-    overdue = Borrowing.objects.filter(return_date__lt=date.today(), returned=False)
+    overdue = Borrowing.objects.filter(expected_return_date__lt=date.today(), actual_return_date__isnull=True)
     if overdue.exists():
         message = f"Overdue returns - {overdue.count()}:\n"
         for book in overdue:
-            message += f"- {book.book.title} borrowed by {book.user.username}, return was {book.return_date}\n"
+            message += f"- {book.book.title} borrowed by {book.user.username}, expected return was {book.expected_return_date}\n"
         send_telegram_message(message)
