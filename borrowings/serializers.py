@@ -4,8 +4,10 @@ from rest_framework.serializers import ModelSerializer
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing
-from payments.stripe_helper import create_stripe_session
+from utils.stripe_helper import create_stripe_session
 from payments.models import Payment
+
+from utils.telegram_helper import send_telegram_message
 
 class BorrowingSerializer(ModelSerializer):
     class Meta:
@@ -33,6 +35,8 @@ class BorrowingSerializer(ModelSerializer):
 
             borrowing = Borrowing.objects.create(**validated_data)
             self._create_payment_with_stripe(borrowing)
+
+            send_telegram_message(f"New borrowing: {book.title} borrowed by {borrowing.user.username}")
 
             return borrowing
 
