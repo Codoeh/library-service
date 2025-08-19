@@ -17,7 +17,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     is_staff = False
 
 
-class Admin(UserFactory):
+class AdminFactory(UserFactory):
     is_staff = True
 
 
