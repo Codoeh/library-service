@@ -1,6 +1,8 @@
+from datetime import timezone, date, timedelta
+
 import pytest
 from rest_framework.test import APIClient
-from tests.factories import UserFactory, AdminFactory
+from tests.factories import UserFactory, AdminFactory, BookFactory
 from unittest.mock import patch
 
 
@@ -38,7 +40,7 @@ def mock_send():
 
 @pytest.fixture
 def mock_stripe_create():
-    with patch("payments.stripe_helper.stripe.checkout.Session.create") as mock:
+    with patch("utils.stripe_helper.stripe.checkout.Session.create") as mock:
         mock.return_value = type("S", (), {
             "id": "sess_123",
             "url": "http://fake/checkout",
