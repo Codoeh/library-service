@@ -33,7 +33,12 @@ class BorrowingSerializer(ModelSerializer):
             book.inventory -= 1
             book.save()
 
-            borrowing = Borrowing.objects.create(**validated_data)
+            user = validated_data.pop("user", None) or self.context["request"].user
+
+            borrowing = Borrowing.objects.create(
+                user=user,
+                **validated_data
+            )
             self._create_payment_with_stripe(borrowing)
 
             send_telegram_message(f"New borrowing: {book.title} borrowed by {borrowing.user.username}")

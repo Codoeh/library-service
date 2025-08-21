@@ -2,6 +2,7 @@ from datetime import timezone, timedelta, date
 
 import pytest
 
+from borrowings.models import Borrowing
 from tests.conftest import auth_client, admin_client, admin_user
 from tests.factories import BorrowingFactory, BookFactory, UserFactory, AdminFactory
 
@@ -53,7 +54,6 @@ def test_admin_can_filter_by_user(admin_client):
     BorrowingFactory.create_batch(3, user=user1)
     BorrowingFactory.create_batch(2, user=user2)
     BorrowingFactory.create_batch(1, user=admin)
-
 
     resp = admin_client.get(BASE, {"user_id": user1.id})
 
@@ -113,14 +113,55 @@ def test_create_borrowing_send_telegram_message(admin_client, mock_send):
     pass
 
 @pytest.mark.django_db
-def test_book_return_increase_inventory(auth_client):
+def test_book_return_increase_inventory(admin_client):
     """Book inventory should be increased by 1"""
-    pass
+    book = BookFactory(inventory=5)
+    admin = AdminFactory()
+
+    # Create borrowing and check is it created properly
+    payload = {
+        "user": admin.id,
+        "book": book.id,
+        "expected_return_date": (date.today() + timedelta(days=5)).isoformat()
+    }
+
+    resp = admin_client.post(BASE, payload, format="json")
+    assert resp.status_code == 201
+    borrowing_id = resp.data["id"]
+    book.refresh_from_db()
+    assert book.inventory == 4
+
+    # Return book and checks book's inventory
+    resp = admin_client.post(BASE + f"{borrowing_id}/return_book/")
+    assert resp.status_code == 200
+    book.refresh_from_db()
+    assert book.inventory == 5
 
 @pytest.mark.django_db
 def test_return_same_book_second_time(auth_client):
     """Can't return same book second time"""
-    pass
+    user = UserFactory()
+    book = BookFactory(inventory=2)
+    borrowing = Borrowing.objects.create(
+        user=user,
+        book=book,
+        expected_return_date=date.today() + timedelta(days=3),
+    )
+    # Login user
+    auth_client.force_authenticate(user=user)
+    # First return should work
+    resp1 = auth_client.post(f"{BASE}{borrowing.id}/return_book/")
+    borrowing.refresh_from_db()
+    book.refresh_from_db()
+
+    assert resp1.status_code == 200
+    assert borrowing.actual_return_date == date.today()
+    assert book.inventory == 3  # +1
+
+    # Second return attempt should fail
+    resp2 = auth_client.post(f"{BASE}{borrowing.id}/return_book/")
+    assert resp2.status_code in (400, 403)
+
 
 @pytest.mark.django_db
 def test_actual_return_date_earlier_than_borrow_date(auth_client):
