@@ -63,7 +63,29 @@ def test_admin_can_filter_by_user(admin_client):
 @pytest.mark.django_db
 def test_return_borrowing_creates_fine_if_overdue(auth_client, mock_stripe_create):
     """Borrowing status should be fine if return is overdue."""
-    pass
+    user = UserFactory()
+    book = BookFactory()
+
+    payload = {
+        "book": book.id,
+        "user": user.id,
+        "borrow_date": (date.today() - timedelta(days=6)).isoformat(),
+        "expected_return_date": (date.today() - timedelta(days=5)).isoformat()
+    }
+    auth_client.force_authenticate(user=user)
+    resp = auth_client.post(BASE, payload, format="json")
+    assert resp.status_code == 201
+    borrowing_id = resp.data["id"]
+
+    resp = auth_client.post(BASE + f"{borrowing_id}/return_book/")
+    print(resp.data)
+    assert resp.status_code == 200
+    borrowing = Borrowing.objects.get(id=borrowing_id)
+    borrowing.refresh_from_db()
+    payment = borrowing.payments.first()
+    payment.refresh_from_db()
+    assert payment.type == "FINE"
+
 
 @pytest.mark.django_db
 def test_create_borrowing_book_out_of_stock(admin_client, mock_stripe_create):
@@ -211,8 +233,8 @@ def test_admin_can_filter_by_is_active(admin_client):
     # Create borrowings
     borrowing_1 = BorrowingFactory()
     borrowing_2 = BorrowingFactory()
-    borrowing_3 = BorrowingFactory()
-    borrowing_4 = BorrowingFactory()
+    BorrowingFactory()
+    BorrowingFactory()
 
     # Return 2 books
     resp1 = admin_client.post(BASE + f"{borrowing_1.id}/return_book/")

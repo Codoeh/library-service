@@ -61,13 +61,24 @@ class BorrowingSerializer(ModelSerializer):
                 instance.actual_return_date = actual_return_date
                 instance.save(update_fields=["actual_return_date", "book"])
 
-                payment = Payment.objects.create(borrowing=instance)
-                payment.update_payment_amount()
+                # payment = Payment.objects.create(borrowing=instance)
+                # payment.update_payment_amount()
+                # payment.save()
+                #
+                # stripe_session = create_stripe_session(payment, self.context["request"])
+                # if isinstance(stripe_session, dict) and "url" in stripe_session:
+                #     payment.session_url = stripe_session["url"]
+                #     payment.save(update_fields=["session_url"])
 
-                stripe_session = create_stripe_session(payment, self.context["request"])
-                if isinstance(stripe_session, dict) and "url" in stripe_session:
-                    payment.session_url = stripe_session["url"]
-                    payment.save(update_fields=["session_url"])
+                # użycie istniejącej płatności
+                payment = instance.payments.first()
+                if payment:
+                    payment.update_payment_amount()
+
+                    stripe_session = create_stripe_session(payment, self.context["request"])
+                    if isinstance(stripe_session, dict) and "url" in stripe_session:
+                        payment.session_url = stripe_session["url"]
+                        payment.save(update_fields=["session_url"])
                 self.context["created_payment"] = payment
                 return instance
 
