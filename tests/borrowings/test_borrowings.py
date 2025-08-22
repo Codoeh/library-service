@@ -1,4 +1,5 @@
 from datetime import timezone, timedelta, date
+from decimal import Decimal
 
 import pytest
 
@@ -188,12 +189,72 @@ def test_return_same_book_second_time(auth_client):
 @pytest.mark.django_db
 def test_actual_return_date_earlier_than_borrow_date(auth_client):
     """Can't set actual_return_date earlier than borrow_date"""
-    pass
+    book = BookFactory()
+    user = UserFactory()
+
+    payload = {
+        "book": book.id,
+        "user": user.id,
+        "expected_return_date": (date.today() + timedelta(days=5)).isoformat(),
+        "borrow_date": (date.today() + timedelta(days=2)).isoformat()
+    }
+
+    auth_client.force_authenticate(user=user)
+
+    resp = auth_client.post(BASE, payload, format="json")
+    assert resp.status_code == 201
+
+    borrowing_id = resp.data["id"]
+    resp_2 = auth_client.post(BASE + f"{borrowing_id}/return_book/", {"actual_return_date": (date.today() - timedelta(days=1)).isoformat()}, format="json")
+
+    assert resp_2.status_code == 400
+    assert resp_2.data["actual_return_date"] == "Return date cannot be earlier than borrow date."
+
 
 @pytest.mark.django_db
-def test_money_to_pay(auth_client):
+@pytest.mark.parametrize(
+    "expected_return_delta, expected_amount, expected_type",
+    [
+        (-5, Decimal("30.00"), "FINE"), #Overdue
+        (5, Decimal("20.00"), "PAYMENT"), #No overdue
+    ]
+)
+def test_money_to_pay(auth_client, expected_return_delta, expected_type, expected_amount):
     """Amount to pay is properly calculated"""
-    pass
+    book = BookFactory(daily_fee="2.00")
+    user = UserFactory()
+    auth_client.force_authenticate(user=user)
+
+    borrow_date = date.today() - timedelta(days=10)
+    expected_return_date = date.today() + timedelta(days=expected_return_delta)
+    actual_return_date = date.today()
+
+    payload = {
+        "book": book.id,
+        "user": user.id,
+        "expected_return_date": expected_return_date.isoformat(),
+    }
+
+    resp = auth_client.post(BASE, payload, format="json")
+    assert resp.status_code == 201
+    borrowing_id = resp.data["id"]
+
+    borrowing = Borrowing.objects.get(id=borrowing_id)
+    borrowing.borrow_date = borrow_date
+    borrowing.save()
+
+    resp_return = auth_client.post(
+        BASE + f"{borrowing_id}/return_book/",
+        {"actual_return_date": actual_return_date.isoformat()},
+        format="json"
+    )
+    assert resp_return.status_code == 200
+
+    borrowing.refresh_from_db()
+    payment = borrowing.payments.first()
+
+    assert payment.money_to_pay == expected_amount
+    assert payment.type == expected_type
 
 @pytest.mark.django_db
 def test_normal_user_cannot_see_other_user_borrowings(auth_client):

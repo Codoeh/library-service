@@ -1,6 +1,11 @@
+from decimal import Decimal
+
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
+from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
+from django.core.exceptions import ValidationError as DjangoValidationError
+from datetime import datetime
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing
@@ -10,13 +15,15 @@ from utils.telegram_helper import send_telegram_message
 
 
 class BorrowingSerializer(ModelSerializer):
+    actual_return_date = serializers.DateField(required=False)
+
     class Meta:
         model = Borrowing
         fields = ("id", "borrow_date", "expected_return_date", "actual_return_date", "book", "user")
         read_only_fields = ("id",)
 
     def _create_payment_with_stripe(self, borrowing):
-        payment = Payment.objects.create(borrowing=borrowing)
+        payment = Payment.objects.create(borrowing=borrowing, money_to_pay=Decimal("0.00"))
         stripe_session = create_stripe_session(payment, self.context["request"])
         if isinstance(stripe_session, dict) and "url" in stripe_session:
             payment.session_url = stripe_session["url"]
@@ -34,13 +41,12 @@ class BorrowingSerializer(ModelSerializer):
             book.save()
 
             user = validated_data.pop("user", None) or self.context["request"].user
-
             borrowing = Borrowing.objects.create(
                 user=user,
                 **validated_data
             )
-            self._create_payment_with_stripe(borrowing)
 
+            self._create_payment_with_stripe(borrowing)
             send_telegram_message(f"New borrowing: {book.title} borrowed by {borrowing.user.username}")
 
             return borrowing
@@ -48,39 +54,42 @@ class BorrowingSerializer(ModelSerializer):
     def update(self, instance, validated_data):
         with transaction.atomic():
             actual_return_date = validated_data.get("actual_return_date")
-            if actual_return_date:
-                if instance.actual_return_date is not None:
-                    raise ValidationError("This borrowing has already been returned.")
-                if actual_return_date < instance.borrow_date:
-                    raise ValidationError("Return date cannot be earlier than borrow date.")
+            if not actual_return_date:
+                return super().update(instance, validated_data)
 
-                book = instance.book
-                book.inventory += 1
-                book.save()
+            if isinstance(actual_return_date, str):
+                actual_return_date = datetime.strptime(actual_return_date, "%Y-%m-%d").date()
 
-                instance.actual_return_date = actual_return_date
-                instance.save(update_fields=["actual_return_date", "book"])
+            if actual_return_date < instance.borrow_date:
+                raise ValidationError({"actual_return_date": "Return date cannot be earlier than borrow date."})
+            if instance.actual_return_date is not None:
+                raise ValidationError({
+                    "actual_return_date": "This borrowing has already been returned."
+                })
 
-                # payment = Payment.objects.create(borrowing=instance)
-                # payment.update_payment_amount()
-                # payment.save()
-                #
-                # stripe_session = create_stripe_session(payment, self.context["request"])
-                # if isinstance(stripe_session, dict) and "url" in stripe_session:
-                #     payment.session_url = stripe_session["url"]
-                #     payment.save(update_fields=["session_url"])
+            instance.actual_return_date = actual_return_date
 
-                # użycie istniejącej płatności
-                payment = instance.payments.first()
-                if payment:
-                    payment.update_payment_amount()
+            try:
+                instance.full_clean()
+            except DjangoValidationError as e:
+                raise ValidationError(e.message_dict or {"detail": e.messages})
 
-                    stripe_session = create_stripe_session(payment, self.context["request"])
-                    if isinstance(stripe_session, dict) and "url" in stripe_session:
-                        payment.session_url = stripe_session["url"]
-                        payment.save(update_fields=["session_url"])
-                self.context["created_payment"] = payment
-                return instance
+            book = instance.book
+            book.inventory += 1
+            book.save()
+
+            instance.save()
+
+            payment = instance.payments.first()
+            if payment:
+                payment.update_payment_amount()
+
+                stripe_session = create_stripe_session(payment, self.context["request"])
+                if isinstance(stripe_session, dict) and "url" in stripe_session:
+                    payment.session_url = stripe_session["url"]
+                    payment.save(update_fields=["session_url"])
+            self.context["created_payment"] = payment
+            return instance
 
         return super().update(instance, validated_data)
 
