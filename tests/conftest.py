@@ -35,7 +35,12 @@ def admin_client(api_client, admin_user):
 
 @pytest.fixture
 def mock_send():
-    with patch("utils.telegram_helper.send_telegram_message") as mock:
+    with patch("borrowings.serializers.send_telegram_message") as mock:
+        yield mock
+
+@pytest.fixture
+def mock_send_task():
+    with patch("borrowings.tasks.send_telegram_message") as mock:
         yield mock
 
 @pytest.fixture
