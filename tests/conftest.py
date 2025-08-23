@@ -57,3 +57,8 @@ def mock_stripe_retrieve():
     with patch("payments.views.stripe.checkout.Session.retrieve") as mock:
         mock.return_value = type("S", (), {"payment_status": "paid"})()
         yield mock
+
+@pytest.fixture
+def mock_send_payment_telegram_message():
+    with patch("payments.views.send_telegram_message") as mock:
+        yield mock
