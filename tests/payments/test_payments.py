@@ -2,7 +2,6 @@ from decimal import Decimal
 
 import pytest
 
-from borrowings.models import Borrowing
 from payments.models import Payment
 from payments.serializers import PaymentSerializer
 from tests.factories import BorrowingFactory
@@ -11,7 +10,11 @@ from tests.factories import BorrowingFactory
 @pytest.mark.django_db
 def test_payment_serializer_fields():
     borrowing = BorrowingFactory()
-    payment = Payment.objects.create(borrowing=borrowing, type="PAYMENT", money_to_pay=Decimal("5.00"))
+    payment = Payment.objects.create(
+        borrowing=borrowing,
+        type="PAYMENT",
+        money_to_pay=Decimal("5.00")
+    )
     serializer = PaymentSerializer(payment)
     data = serializer.data
     assert data["id"] == payment.id
@@ -19,8 +22,14 @@ def test_payment_serializer_fields():
     assert data["borrowing_id"] == borrowing.id
     assert data["book_title"] == borrowing.book.title
 
+
 @pytest.mark.django_db
-def test_payment_viewset_success_and_cancel(auth_client, mock_send_payment_telegram_message, mock_stripe_retrieve, user):
+def test_payment_viewset_success_and_cancel(
+        auth_client,
+        mock_send_payment_telegram_message,
+        mock_stripe_retrieve,
+        user
+):
     borrowing = BorrowingFactory(user=user)
     payment = Payment.objects.create(
         borrowing=borrowing,

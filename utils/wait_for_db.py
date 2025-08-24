@@ -3,6 +3,7 @@ import psycopg2
 from psycopg2 import OperationalError
 import os
 
+
 def wait_for_postgres():
     db_user = os.environ.get("DATABASE_USERNAME", "dbuser")
     db_password = os.environ.get("DATABASE_PASSWORD", "dbpassword")
@@ -22,9 +23,10 @@ def wait_for_postgres():
             conn.close()
             print("Database is ready!")
             break
-        except OperationalError as e:
+        except OperationalError:
             print("Waiting for database...")
             time.sleep(1)
+
 
 if __name__ == "__main__":
     wait_for_postgres()

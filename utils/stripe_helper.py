@@ -24,7 +24,8 @@ def create_stripe_session(payment, request):
             "price_data": {
                 "currency": "usd",
                 "product_data": {
-                    "name": f"Library payment for borrowing {payment.borrowing.id}",
+                    "name": f"Library payment "
+                            f"for borrowing {payment.borrowing.id}",
                 },
                 "unit_amount": amount,
             },

@@ -2,18 +2,20 @@ from datetime import timedelta, date
 from decimal import Decimal
 
 import pytest
-from pytest_django.fixtures import admin_user
 
 from borrowings.models import Borrowing
 from borrowings.tasks import notify_overdue_borrowings
-from tests.conftest import auth_client, admin_client
 from tests.factories import BorrowingFactory, BookFactory, UserFactory
 
 BASE = "/api/v1/borrowings/"
 
 
 @pytest.mark.django_db
-def test_create_borrowing_decrements_inventory(admin_client, mock_stripe_create, user):
+def test_create_borrowing_decrements_inventory(
+        admin_client,
+        mock_stripe_create,
+        user
+):
     """Inventory should decrease by 1 on every borrowing create."""
     book = BookFactory(inventory=5)
 
@@ -52,7 +54,6 @@ def test_admin_can_filter_by_user(admin_client, admin_user):
     user1 = UserFactory()
     user2 = UserFactory()
 
-
     BorrowingFactory.create_batch(3, user=user1)
     BorrowingFactory.create_batch(2, user=user2)
     BorrowingFactory.create_batch(1, user=admin_user)
@@ -62,8 +63,13 @@ def test_admin_can_filter_by_user(admin_client, admin_user):
     assert resp.status_code == 200
     assert len(resp.data) == 3
 
+
 @pytest.mark.django_db
-def test_return_borrowing_creates_fine_if_overdue(auth_client, mock_stripe_create, user):
+def test_return_borrowing_creates_fine_if_overdue(
+        auth_client,
+        mock_stripe_create,
+        user
+):
     """Borrowing status should be fine if return is overdue."""
     book = BookFactory()
 
@@ -89,7 +95,11 @@ def test_return_borrowing_creates_fine_if_overdue(auth_client, mock_stripe_creat
 
 
 @pytest.mark.django_db
-def test_create_borrowing_book_out_of_stock(admin_client, mock_stripe_create, user):
+def test_create_borrowing_book_out_of_stock(
+        admin_client,
+        mock_stripe_create,
+        user
+):
     """Borrowing shouldn't be created if book's inventory is equal to 0."""
     book = BookFactory(inventory=0)
 
@@ -108,7 +118,8 @@ def test_create_borrowing_book_out_of_stock(admin_client, mock_stripe_create, us
 
 @pytest.mark.django_db
 def test_actual_return_date_cleared_when_created(admin_client, admin_user):
-    """Actual_return_date field should be automatically cleared after borrowing creation."""
+    """Actual_return_date field should be
+    automatically cleared after borrowing creation."""
     book = BookFactory()
 
     payload = {
@@ -123,8 +134,13 @@ def test_actual_return_date_cleared_when_created(admin_client, admin_user):
     assert resp.status_code == 201
     assert resp.data["actual_return_date"] is None
 
+
 @pytest.mark.django_db
-def test_create_borrowing_creates_payment_and_stripe_session(auth_client, mock_stripe_create, user):
+def test_create_borrowing_creates_payment_and_stripe_session(
+        auth_client,
+        mock_stripe_create,
+        user
+):
     """Creating borrowing should create related payment and stripe session."""
     book = BookFactory()
 
@@ -151,8 +167,13 @@ def test_create_borrowing_creates_payment_and_stripe_session(auth_client, mock_s
     assert payment.session_id is not None
     assert mock_stripe_create.call_count == 1
 
+
 @pytest.mark.django_db
-def test_create_borrowing_send_telegram_message(admin_client, admin_user, mock_send):
+def test_create_borrowing_send_telegram_message(
+        admin_client,
+        admin_user,
+        mock_send
+):
     book = BookFactory()
 
     mock_send.assert_not_called()
@@ -166,6 +187,7 @@ def test_create_borrowing_send_telegram_message(admin_client, admin_user, mock_s
     assert resp.status_code == 201
 
     mock_send.assert_called_once()
+
 
 @pytest.mark.django_db
 def test_book_return_increase_inventory(admin_client, admin_user):
@@ -190,6 +212,7 @@ def test_book_return_increase_inventory(admin_client, admin_user):
     assert resp.status_code == 200
     book.refresh_from_db()
     assert book.inventory == 5
+
 
 @pytest.mark.django_db
 def test_return_same_book_second_time(auth_client, user):
@@ -234,21 +257,33 @@ def test_actual_return_date_earlier_than_borrow_date(auth_client, user):
     assert resp.status_code == 201
 
     borrowing_id = resp.data["id"]
-    resp_2 = auth_client.post(BASE + f"{borrowing_id}/return_book/", {"actual_return_date": (date.today() - timedelta(days=1)).isoformat()}, format="json")
+    resp_2 = auth_client.post(
+        BASE + f"{borrowing_id}/return_book/",
+        {"actual_return_date": (date.today() - timedelta(days=1)).isoformat()},
+        format="json"
+    )
 
     assert resp_2.status_code == 400
-    assert resp_2.data["actual_return_date"] == "Return date cannot be earlier than borrow date."
+    assert resp_2.data["actual_return_date"] == (
+        "Return date cannot be earlier than borrow date."
+    )
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "expected_return_delta, expected_amount, expected_type",
     [
-        (-5, Decimal("30.00"), "FINE"), #Overdue
-        (5, Decimal("20.00"), "PAYMENT"), #No overdue
+        (-5, Decimal("30.00"), "FINE"),  # Overdue
+        (5, Decimal("20.00"), "PAYMENT"),  # Overdue
     ]
 )
-def test_money_to_pay(auth_client, expected_return_delta, expected_type, expected_amount, user):
+def test_money_to_pay(
+        auth_client,
+        expected_return_delta,
+        expected_type,
+        expected_amount,
+        user
+):
     """Amount to pay is properly calculated"""
     book = BookFactory(daily_fee="2.00")
     auth_client.force_authenticate(user=user)
@@ -284,6 +319,7 @@ def test_money_to_pay(auth_client, expected_return_delta, expected_type, expecte
     assert payment.money_to_pay == expected_amount
     assert payment.type == expected_type
 
+
 @pytest.mark.django_db
 def test_normal_user_cannot_see_other_user_borrowings(auth_client):
     """Normal user shouldn't be able to see other users borrowings."""
@@ -315,6 +351,7 @@ def test_admin_user_sees_all_users_borrowings(admin_client, admin_user):
     assert resp.status_code == 200
     assert len(resp.data) == 6
 
+
 @pytest.mark.django_db
 def test_admin_can_filter_by_is_active(admin_client):
     """Admin user should be able to filter borrowings by is_active param."""
@@ -340,17 +377,29 @@ def test_admin_can_filter_by_is_active(admin_client):
     assert resp.status_code == 200
     assert len(resp.data) == 2
 
+
 @pytest.mark.django_db
 @pytest.mark.parametrize("has_overdue, called", [
     (True, True),
     (False, False),
 ])
-def test_notify_overdue_borrowings(admin_client, mock_send_task, has_overdue, called):
+def test_notify_overdue_borrowings(
+        admin_client,
+        mock_send_task,
+        has_overdue,
+        called
+):
     """Notification should be sent only when there are overdue borrowings."""
     if has_overdue:
-        BorrowingFactory.create_batch(4, expected_return_date=(date.today() - timedelta(days=5)))
+        BorrowingFactory.create_batch(
+            4,
+            expected_return_date=(date.today() - timedelta(days=5))
+        )
     else:
-        BorrowingFactory.create_batch(4, expected_return_date=(date.today() + timedelta(days=5)))
+        BorrowingFactory.create_batch(
+            4,
+            expected_return_date=(date.today() + timedelta(days=5))
+        )
 
     notify_overdue_borrowings.run()
     if called:

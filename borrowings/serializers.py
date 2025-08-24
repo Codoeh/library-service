@@ -19,12 +19,25 @@ class BorrowingSerializer(ModelSerializer):
 
     class Meta:
         model = Borrowing
-        fields = ("id", "borrow_date", "expected_return_date", "actual_return_date", "book", "user")
+        fields = (
+            "id",
+            "borrow_date",
+            "expected_return_date",
+            "actual_return_date",
+            "book",
+            "user"
+        )
         read_only_fields = ("id",)
 
     def _create_payment_with_stripe(self, borrowing):
-        payment = Payment.objects.create(borrowing=borrowing, money_to_pay=Decimal("0.00"))
-        stripe_session = create_stripe_session(payment, self.context["request"])
+        payment = Payment.objects.create(
+            borrowing=borrowing,
+            money_to_pay=Decimal("0.00")
+        )
+        stripe_session = create_stripe_session(
+            payment,
+            self.context["request"]
+        )
         if isinstance(stripe_session, dict) and "url" in stripe_session:
             payment.session_url = stripe_session["url"]
             payment.save(update_fields=["session_url"])
@@ -40,14 +53,20 @@ class BorrowingSerializer(ModelSerializer):
             book.inventory -= 1
             book.save()
 
-            user = validated_data.pop("user", None) or self.context["request"].user
+            user = validated_data.pop(
+                "user",
+                None
+            ) or self.context["request"].user
             borrowing = Borrowing.objects.create(
                 user=user,
                 **validated_data
             )
 
             self._create_payment_with_stripe(borrowing)
-            send_telegram_message(f"New borrowing: {book.title} borrowed by {borrowing.user.username}")
+            send_telegram_message(
+                f"New borrowing: {book.title} borrowed "
+                f"by {borrowing.user.username}"
+            )
 
             return borrowing
 
@@ -58,13 +77,18 @@ class BorrowingSerializer(ModelSerializer):
                 return super().update(instance, validated_data)
 
             if isinstance(actual_return_date, str):
-                actual_return_date = datetime.strptime(actual_return_date, "%Y-%m-%d").date()
+                actual_return_date = datetime.strptime(
+                    actual_return_date,
+                    "%Y-%m-%d").date()
 
             if actual_return_date < instance.borrow_date:
-                raise ValidationError({"actual_return_date": "Return date cannot be earlier than borrow date."})
+                raise ValidationError(
+                    {"actual_return_date": "Return date cannot "
+                                           "be earlier than borrow date."})
             if instance.actual_return_date is not None:
                 raise ValidationError({
-                    "actual_return_date": "This borrowing has already been returned."
+                    "actual_return_date": "This borrowing has "
+                                          "already been returned."
                 })
 
             instance.actual_return_date = actual_return_date
@@ -84,8 +108,14 @@ class BorrowingSerializer(ModelSerializer):
             if payment:
                 payment.update_payment_amount()
 
-                stripe_session = create_stripe_session(payment, self.context["request"])
-                if isinstance(stripe_session, dict) and "url" in stripe_session:
+                stripe_session = create_stripe_session(
+                    payment,
+                    self.context["request"]
+                )
+                if isinstance(
+                        stripe_session,
+                        dict
+                ) and "url" in stripe_session:
                     payment.session_url = stripe_session["url"]
                     payment.save(update_fields=["session_url"])
             self.context["created_payment"] = payment
@@ -96,7 +126,15 @@ class BorrowingSerializer(ModelSerializer):
 
 class BorrowingDetailSerializer(BorrowingSerializer):
     book = BookSerializer(read_only=True)
+
     class Meta:
         model = Borrowing
-        fields = ("id", "borrow_date", "expected_return_date", "actual_return_date", "book", "user")
+        fields = (
+            "id",
+            "borrow_date",
+            "expected_return_date",
+            "actual_return_date",
+            "book",
+            "user"
+        )
         read_only_fields = ("id",)

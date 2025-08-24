@@ -11,4 +11,3 @@ router.register(r"", BorrowingViewSet, basename="borrowing")
 urlpatterns = [
     path("", include(router.urls)),
 ]
-

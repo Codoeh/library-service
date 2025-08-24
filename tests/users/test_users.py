@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import api_client, user
+
 BASE = "/api/v1/user/"
 
 
@@ -11,6 +11,7 @@ def test_user_registration(api_client):
     assert resp.status_code == 201
     assert "id" in resp.data
 
+
 @pytest.mark.django_db
 def test_user_login(api_client, user):
     payload = {"username": user.username, "password": "testpass123"}
@@ -19,11 +20,13 @@ def test_user_login(api_client, user):
     assert resp.status_code == 200
     assert "access" in resp.data
 
+
 @pytest.mark.django_db
 def test_get_me_requires_auth(api_client):
     resp = api_client.get(BASE + "me/")
 
     assert resp.status_code in (401, 403)
+
 
 @pytest.mark.django_db
 def test_get_me_authenticated(auth_client, user):
