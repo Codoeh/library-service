@@ -19,10 +19,11 @@ def test_create_borrowing_decrements_inventory(
     """Inventory should decrease by 1 on every borrowing create."""
     book = BookFactory(inventory=5)
 
+    expected_return_date = date.today() + timedelta(days=5)
     payload = {
         "book": book.id,
         "user": user.id,
-        "expected_return_date": (date.today() + timedelta(days=5)).isoformat(),
+        "expected_return_date": expected_return_date.isoformat(),
     }
 
     resp = admin_client.post(BASE, payload, format="json")
@@ -30,7 +31,11 @@ def test_create_borrowing_decrements_inventory(
     assert resp.status_code == 201
     book.refresh_from_db()
     assert book.inventory == 4
-
+    borrowing = Borrowing.objects.get(id=resp.data["id"])
+    assert borrowing.borrow_date == date.today()
+    assert borrowing.expected_return_date == expected_return_date
+    assert borrowing.user.id == payload["user"]
+    assert borrowing.book.id == payload["book"]
 
 @pytest.mark.django_db
 def test_normal_user_sees_only_own_borrowings(auth_client):

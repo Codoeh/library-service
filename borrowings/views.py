@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -23,6 +25,29 @@ from borrowings.serializers import (
     BorrowingDetailSerializer
 )
 from library_service.permissions import IsAdminOrIfAuthenticatedReadOnly
+
+
+class BorrowingActions(StrEnum):
+    LIST = "list"
+    RETRIEVE = "retrieve"
+    CREATE = "create"
+    RETURN_BOOK = "return_book"
+    UPDATE = "update"
+    PARTIAL_UPDATE = "partial_update"
+    DESTROY = "destroy"
+
+AUTHENTICATED_ACTIONS = {
+    BorrowingActions.LIST,
+    BorrowingActions.RETRIEVE,
+    BorrowingActions.CREATE,
+    BorrowingActions.RETURN_BOOK,
+}
+ADMIN_ACTIONS = {
+    BorrowingActions.UPDATE,
+    BorrowingActions.PARTIAL_UPDATE,
+    BorrowingActions.DESTROY,
+}
+
 
 list_parameters = [
             OpenApiParameter(
@@ -67,13 +92,10 @@ list_parameters = [
 class BorrowingViewSet(ModelViewSet):
 
     def get_permissions(self):
-        if self.action in ("list", "retrieve"):
+        action = self.action
+        if action in AUTHENTICATED_ACTIONS:
             return [IsAuthenticated()]
-        elif self.action == "create":
-            return [IsAuthenticated()]
-        elif self.action == "return_book":
-            return [IsAuthenticated()]
-        elif self.action in ("update", "partial_update", "destroy"):
+        elif action in ADMIN_ACTIONS:
             return [IsAdminUser()]
         return super().get_permissions()
 

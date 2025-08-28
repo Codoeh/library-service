@@ -10,7 +10,7 @@ from datetime import datetime
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing
 from payments.models import Payment
-from utils.stripe_helper import create_stripe_session
+from utils.stripe_helper import stripe_client
 from utils.telegram_helper import send_telegram_message
 
 
@@ -29,12 +29,13 @@ class BorrowingSerializer(ModelSerializer):
         )
         read_only_fields = ("id",)
 
-    def _create_payment_with_stripe(self, borrowing):
+    def _create_payment(self, borrowing):
+        """Create Payment and init checkout on currently configured gateway."""
         payment = Payment.objects.create(
             borrowing=borrowing,
             money_to_pay=Decimal("0.00")
         )
-        stripe_session = create_stripe_session(
+        stripe_session = stripe_client.create_checkout_session(
             payment,
             self.context["request"]
         )
@@ -62,7 +63,7 @@ class BorrowingSerializer(ModelSerializer):
                 **validated_data
             )
 
-            self._create_payment_with_stripe(borrowing)
+            self._create_payment(borrowing)
             send_telegram_message(
                 f"New borrowing: {book.title} borrowed "
                 f"by {borrowing.user.username}"
@@ -108,7 +109,7 @@ class BorrowingSerializer(ModelSerializer):
             if payment:
                 payment.update_payment_amount()
 
-                stripe_session = create_stripe_session(
+                stripe_session = stripe_client.create_checkout_session(
                     payment,
                     self.context["request"]
                 )

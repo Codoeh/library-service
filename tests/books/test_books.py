@@ -1,16 +1,8 @@
 import pytest
 from tests.factories import BookFactory
+from books.models import Book
 
 BASE = "/api/v1/books/"
-
-
-new_book_payload = {
-        "title": "New",
-        "author": "A",
-        "cover": "SOFT",
-        "inventory": 2,
-        "daily_fee": "1.20",
-    }
 
 
 @pytest.mark.django_db
@@ -24,23 +16,28 @@ def test_list_books_without_auth(api_client):
 
 
 @pytest.mark.django_db
-def test_create_book_requires_admin(auth_client):
+def test_create_book_requires_admin(auth_client, book_payload):
     """Normal user shouldn't be able to create a new book."""
-    payload = new_book_payload
+    payload = book_payload
     resp = auth_client.post(BASE, payload, format="json")
 
     assert resp.status_code in (403, 401)
 
 
 @pytest.mark.django_db
-def test_admin_create_book(admin_client):
+def test_admin_create_book(admin_client, book_payload):
     """Admin user should be able to create a new book."""
-    payload = new_book_payload
+    payload = book_payload
     resp = admin_client.post(BASE, payload, format="json")
 
     assert resp.status_code == 201
     assert resp.data["title"] == "New"
-
+    book = Book.objects.get(id=resp.data["id"])
+    assert book.title == payload["title"]
+    assert book.author == payload["author"]
+    assert book.cover == payload["cover"]
+    assert book.inventory == payload["inventory"]
+    assert book.daily_fee == payload["daily_fee"]
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(

@@ -42,22 +42,31 @@ The goal of the system is to replace the outdated paper-based process in a libra
 
 ---
 
-## 🐳 Running with Docker
+## 🐳 Running the Project
+
+Instead of remembering long Docker commands, you can use the **Makefile**:
 
 ```bash
-git clone https://github.com/Codoeh/library-service
-cd library-service
-cp .env.sample .env
-docker compose up --build
-```
+# All available commands
+make help
 
----
+# Complete setup from scratch
+make setup
 
-## 🧪 Running Tests
+# Run migrations only
+make migrate
 
-To run tests inside Docker:
-```bash
-docker compose run --rm django-web pytest
+# Start all containers in background
+make run
+
+# Stop all containers
+make stop
+
+# View live logs of Django
+make logs
+
+# To run tests
+make tests
 ```
 
 ---

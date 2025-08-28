@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
@@ -71,3 +72,15 @@ def mock_stripe_retrieve():
 def mock_send_payment_telegram_message():
     with patch("payments.views.send_telegram_message") as mock:
         yield mock
+
+
+@pytest.fixture
+def book_payload():
+    book_payload = {
+        "title": "New",
+        "author": "A",
+        "cover": "SOFT",
+        "inventory": 2,
+        "daily_fee": Decimal("1.20"),
+    }
+    return book_payload
